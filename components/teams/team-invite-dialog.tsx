@@ -123,7 +123,7 @@ export default function TeamInviteDialog({ teamId, teamName, inviteCode, showTri
               </div>
             </div>
           </TabsContent>
-          <TabsContent value="link" className="space-y-4 py-4">
+          {/* <TabsContent value="link" className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="invite-link">Invite Link</Label>
               <div className="flex">
@@ -143,7 +143,7 @@ export default function TeamInviteDialog({ teamId, teamName, inviteCode, showTri
               </div>
               <p className="text-xs text-gray-400">Share this link with people you want to invite to your team</p>
             </div>
-          </TabsContent>
+          </TabsContent> */}
           <TabsContent value="qr" className="flex flex-col items-center justify-center py-4 space-y-4">
             <div className="bg-white p-4 rounded-lg">
               <QRCode value={qrValue} size={200} level="H" />

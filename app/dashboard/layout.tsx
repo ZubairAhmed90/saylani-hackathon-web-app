@@ -145,7 +145,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       .substring(0, 2)
   }
 
-  // Instead of early return, render conditionally
+
   return (
     <>
       {!isLoggedIn ? (
