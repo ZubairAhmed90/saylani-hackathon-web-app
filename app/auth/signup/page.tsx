@@ -15,7 +15,6 @@ import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/components/ui/use-toast"
 import { Loader2, Check, X } from "lucide-react"
 import FirebaseErrorBanner from "@/components/firebase-error-banner"
-import { debugFirestore } from "@/lib/debug-firebase"
 
 interface ValidationState {
   hasMinLength: boolean
@@ -32,6 +31,7 @@ export default function SignupPage() {
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [showPasswordRequirements, setShowPasswordRequirements] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [validation, setValidation] = useState<ValidationState>({
     hasMinLength: false,
     hasUpperCase: false,
@@ -61,6 +61,7 @@ export default function SignupPage() {
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError(null)
 
     if (!isConfigured) {
       toast({
@@ -112,8 +113,13 @@ export default function SignupPage() {
     try {
       await signUpWithEmail(email, password, name)
       router.push("/dashboard")
-    } catch (error) {
-      // Error is already handled in auth-context
+    } catch (error: any) {
+      // Handle specific error for email already in use
+      if (error.code === "auth/email-already-in-use") {
+        setError("This email is already registered. Please sign in instead.")
+      } else {
+        setError(error.message || "Failed to create account")
+      }
     } finally {
       setIsLoading(false)
     }
@@ -130,30 +136,18 @@ export default function SignupPage() {
     }
 
     setIsLoading(true)
+    setError(null)
 
     try {
       await signInWithGoogle()
       router.push("/dashboard")
-    } catch (error) {
-      // Error is already handled in auth-context
+    } catch (error: any) {
+      // Handle specific error for popup closed by user
+      if (error.code !== "auth/popup-closed-by-user") {
+        setError(error.message || "Failed to sign in with Google")
+      }
     } finally {
       setIsLoading(false)
-    }
-  }
-
-  const debugFirestoreConnection = async () => {
-    try {
-      const result = await debugFirestore()
-      toast({
-        title: "Debug Result",
-        description: result,
-      })
-    } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Debug Error",
-        description: String(error),
-      })
     }
   }
 
@@ -166,6 +160,19 @@ export default function SignupPage() {
         </CardHeader>
         <CardContent>
           <FirebaseErrorBanner />
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-900/20 border border-red-800 rounded-md text-sm text-red-400">
+              {error}
+              {error.includes("already registered") && (
+                <span className="block mt-1">
+                  <Link href="/auth/login" className="text-[#00FFBF] hover:underline">
+                    Sign in here
+                  </Link>
+                </span>
+              )}
+            </div>
+          )}
 
           <form onSubmit={handleEmailSignup} className="space-y-4">
             <div className="space-y-2">
@@ -321,16 +328,6 @@ export default function SignupPage() {
             )}
             Continue with Google
           </Button>
-          {/* {process.env.NODE_ENV === "development" && (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full mt-4 border-red-800 text-red-500 hover:bg-red-900/20"
-              onClick={debugFirestoreConnection}
-            >
-              Debug Firestore
-            </Button>
-          )} */}
         </CardContent>
         <CardFooter className="flex justify-center">
           <p className="text-sm text-gray-400">
@@ -344,4 +341,3 @@ export default function SignupPage() {
     </div>
   )
 }
-
