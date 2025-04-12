@@ -50,6 +50,7 @@ export default function AdminSubmissionsPage() {
   const [searchQuery, setSearchQuery] = useState<string>("")
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
 
   // For scoring
   const [scoringEnrollment, setScoringEnrollment] = useState<Enrollment | null>(null)
@@ -217,7 +218,6 @@ export default function AdminSubmissionsPage() {
     setSubmitting(true)
 
     try {
-      // Use the new utility function to update score in both collections
       const result = await updateUserScore(db, scoringEnrollment.id, Number(score))
 
       if (!result.success) {
@@ -229,7 +229,8 @@ export default function AdminSubmissionsPage() {
         description: "Score updated successfully",
       })
 
-      setScoringEnrollment(null)
+      // Close the dialog
+      setIsDialogOpen(false)
 
       const updatedEnrollments = enrollments.map((e) =>
         e.id === scoringEnrollment.id ? { ...e, score: Number(score) } : e,
@@ -414,7 +415,7 @@ export default function AdminSubmissionsPage() {
                           </>
                         )}
 
-                        <Dialog>
+                        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                           <DialogTrigger asChild>
                             <Button
                               variant="outline"

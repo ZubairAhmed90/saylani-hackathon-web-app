@@ -18,40 +18,37 @@ export default function AboutPage() {
             </div>
 
             {/* Mission Section */}
-            <section className="text-white body-font rounded-xl border hover:border-primary/50">
-              <div className="container px-5 mx-auto flex flex-wrap min-h-screen items-center">
-                <div className="flex flex-col lg:flex-row w-full gap-5">
-                  {/* Content Section */}
-                  <div className="lg:w-1/2 w-full lg:pr-12 rounded-xl lg:py-6 mb-10 lg:mb-0 lg:text-left text-center border shadow-md border-primary/50">
-                    <div className="shadow-lg hover:shadow-xl rounded-lg p-6 h-full transition-shadow duration-300">
-                      <div className="space-y-2">
-                        <h2 className="text-2xl font-bold">Our Mission</h2>
-                        <p className="text-muted-foreground">What drives us at GeekCode</p>
-                      </div>
-                      <div className="space-y-4 mt-4">
-                        <p>
-                          At GeekCode, we believe in the power of collaboration and innovation. Our mission is to create
-                          a platform where developers, designers, and tech enthusiasts can come together to solve
-                          problems, learn new skills, and build amazing projects.
-                        </p>
-                        <p>
-                          We aim to make hackathons accessible to everyone, regardless of their experience level or
-                          background. By providing the tools and resources needed to organize and participate in
-                          hackathons, we hope to foster a global community of creators who are passionate about using
-                          technology to make a positive impact.
-                        </p>
-                        <p>
-                          Our platform is designed to streamline the hackathon experience, from team formation to
-                          project submission and judging, allowing participants to focus on what matters most: building
-                          great solutions.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+            <section className="relative text-white body-font rounded-xl border hover:border-primary/50 overflow-hidden min-h-[600px]">
+              {/* Background Image */}
+              <div className="absolute inset-0 z-0">
+                <img src="/images1.jpeg" alt="Mission background" className="w-full h-full object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-r from-black/80 to-black/60"></div>
+              </div>
 
-                  {/* Image Section */}
-                  <div className="lg:w-1/2 w-full lg:mb-0 rounded-lg overflow-hidden flex items-center shadow-[0_0_20px_5px_rgba(0,255,170,0.7)] hover:shadow-[0_0_30px_10px_rgba(0,255,170,0.7)] transition-shadow duration-300">
-                    <img alt="feature" className="object-contain w-full h-full rounded-lg" src="/images1.jpeg" />
+              {/* Content Overlay */}
+              <div className="container px-5 py-24 mx-auto relative z-10">
+                <div className="text-center max-w-3xl mx-auto">
+                  <div className="space-y-2 mb-8">
+                    <h2 className="text-4xl font-bold text-primary">Our Mission</h2>
+                    <p className="text-gray-300">What drives us at GeekCode</p>
+                  </div>
+                  <div className="space-y-6 text-lg">
+                    <p>
+                      At GeekCode, we believe in the power of collaboration and innovation. Our mission is to create a
+                      platform where developers, designers, and tech enthusiasts can come together to solve problems,
+                      learn new skills, and build amazing projects.
+                    </p>
+                    <p>
+                      We aim to make hackathons accessible to everyone, regardless of their experience level or
+                      background. By providing the tools and resources needed to organize and participate in hackathons,
+                      we hope to foster a global community of creators who are passionate about using technology to make
+                      a positive impact.
+                    </p>
+                    <p>
+                      Our platform is designed to streamline the hackathon experience, from team formation to project
+                      submission and judging, allowing participants to focus on what matters most: building great
+                      solutions.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -136,11 +133,11 @@ export default function AboutPage() {
                       </div>
 
                       <a href="https://www.linkedin.com/in/zubairahmed90/" target="_blank" rel="noopener noreferrer">
-                          <Button className="bg-primary text-black hover:bg-primary/90 group">
-                            Connect with Zubair
-                            <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
-                          </Button>
-                        </a>
+                        <Button className="bg-primary text-black hover:bg-primary/90 group">
+                          Connect with Zubair
+                          <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                        </Button>
+                      </a>
                     </div>
                   </CardContent>
                 </div>
@@ -271,4 +268,3 @@ export default function AboutPage() {
     </div>
   )
 }
-
