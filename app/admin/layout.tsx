@@ -22,7 +22,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!user?.isAdmin) {
     return (
       <div className="flex justify-center items-center min-h-[calc(100vh-64px)]">
-        <div className="text-xl">Access denied. You must be an admin to view this page.</div>
+        <div className="text-xl">Loading Admin Dashboard</div>
       </div>
     )
   }
