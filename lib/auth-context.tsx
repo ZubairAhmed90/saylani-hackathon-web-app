@@ -9,15 +9,14 @@ import {
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  onIdTokenChanged,
   updateProfile,
-  sendPasswordResetEmail,
 } from "firebase/auth"
 import { doc, getDoc, setDoc } from "firebase/firestore"
 import { useFirebase } from "./firebase-context"
 import { useToast } from "@/components/ui/use-toast"
 import Cookies from "js-cookie"
 
+// Extend the Firebase User type with our custom properties
 interface User extends FirebaseUser {
   isAdmin?: boolean
 }
@@ -29,9 +28,7 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<void>
   signUpWithEmail: (email: string, password: string, name: string) => Promise<void>
   signOut: () => Promise<void>
-  logout: () => Promise<void>
-  resetPassword: (email: string) => Promise<void>
-  updateDisplayName: (name: string, photoURL?: string) => Promise<void>
+  logout: () => Promise<void> // Added alias for signOut for backward compatibility
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -41,9 +38,7 @@ const AuthContext = createContext<AuthContextType>({
   signInWithEmail: async () => {},
   signUpWithEmail: async () => {},
   signOut: async () => {},
-  logout: async () => {},
-  resetPassword: async () => {},
-  updateDisplayName: async () => {},
+  logout: async () => {}, // Added alias for signOut
 })
 
 export const useAuth = () => useContext(AuthContext)
@@ -54,8 +49,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { auth, db, isConfigured } = useFirebase()
   const { toast } = useToast()
 
-  // Handle auth state changes
   useEffect(() => {
+    // If Firebase is not configured, set loading to false and return
     if (!isConfigured || !auth) {
       setLoading(false)
       return
@@ -63,50 +58,69 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        try {
-          if (!db) {
-            setLoading(false)
-            return
-          }
-          const userRef = doc(db, "users", firebaseUser.uid)
-          let userDoc = await getDoc(userRef)
+        // Check if user has admin role
+        if (db) {
+          try {
+            // First, ensure user exists in Firestore
+            const userRef = doc(db, "users", firebaseUser.uid)
+            let userDoc = await getDoc(userRef)
 
-          if (!userDoc.exists()) {
-            await setDoc(userRef, {
-              uid: firebaseUser.uid,
-              email: firebaseUser.email,
-              displayName: firebaseUser.displayName || "",
-              photoURL: firebaseUser.photoURL || "",
-              isAdmin: false,
-              createdAt: new Date(),
-              lastLogin: new Date(),
+            if (!userDoc.exists()) {
+              // Create user document if it doesn't exist
+              await setDoc(userRef, {
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                displayName: firebaseUser.displayName || "",
+                photoURL: firebaseUser.photoURL || "",
+                isAdmin: false,
+                createdAt: new Date(),
+                lastLogin: new Date(),
+              })
+
+              // Get the newly created document
+              userDoc = await getDoc(userRef)
+            } else {
+              // Update lastLogin
+              await setDoc(
+                userRef,
+                {
+                  lastLogin: new Date(),
+                },
+                { merge: true },
+              )
+            }
+
+            const userData = userDoc.data()
+            const isAdmin = userData?.isAdmin || false
+
+            // Set the user role cookie
+            Cookies.set("user-role", isAdmin ? "admin" : "user", {
+              expires: 7, // 7 days
+              path: "/",
             })
-            userDoc = await getDoc(userRef)
-          } else {
-            await setDoc(
-              userRef,
-              { lastLogin: new Date() },
-              { merge: true },
-            )
+
+            // Set the auth token cookie
+            const token = await firebaseUser.getIdToken()
+            Cookies.set("firebase-auth-token", token, {
+              expires: 7, // 7 days
+              path: "/",
+            })
+
+            // Cast to our extended User type and set the user
+            setUser({ ...firebaseUser, isAdmin } as User)
+          } catch (error) {
+            console.error("Error fetching user data:", error)
+            // Cast to our extended User type with default isAdmin value
+            setUser({ ...firebaseUser, isAdmin: false } as User)
           }
-
-          const userData = userDoc.data()
-          const isAdmin = userData?.isAdmin || false
-
-          Cookies.set("user-role", isAdmin ? "admin" : "user", { expires: 7, path: "/" })
-          const token = await firebaseUser.getIdToken()
-          Cookies.set("firebase-auth-token", token, { expires: 7, path: "/" })
-
-          localStorage.setItem("auth-user", JSON.stringify({ uid: firebaseUser.uid, email: firebaseUser.email, isAdmin }))
-          setUser({ ...firebaseUser, isAdmin } as User)
-        } catch (error) {
-          console.error("Error during auth change:", error)
+        } else {
+          // Cast to our extended User type with default isAdmin value
           setUser({ ...firebaseUser, isAdmin: false } as User)
         }
       } else {
+        // Clear cookies when user is not logged in
         Cookies.remove("user-role", { path: "/" })
         Cookies.remove("firebase-auth-token", { path: "/" })
-        localStorage.removeItem("auth-user")
         setUser(null)
       }
       setLoading(false)
@@ -115,31 +129,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe()
   }, [auth, db, isConfigured])
 
-  // Token auto-refresh handler
-  useEffect(() => {
-    if (!isConfigured || !auth) return
-
-    const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        const token = await firebaseUser.getIdToken()
-        Cookies.set("firebase-auth-token", token, {
-          expires: 7,
-          path: "/",
-        })
-      } else {
-        Cookies.remove("firebase-auth-token", { path: "/" })
-      }
-    })
-
-    return () => unsubscribe()
-  }, [auth, isConfigured])
-
   const signInWithGoogle = async () => {
     if (!isConfigured || !auth || !db) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Firebase is not properly configured.",
+        description: "Firebase is not properly configured. Please check your environment variables.",
       })
       return
     }
@@ -148,14 +143,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const provider = new GoogleAuthProvider()
       const result = await signInWithPopup(auth, provider)
 
-      if (!db) {
-        throw new Error("Firestore not available")
-      }
-
+      // Check if this is a new user
       const userRef = doc(db, "users", result.user.uid)
       const userDoc = await getDoc(userRef)
 
       if (!userDoc.exists()) {
+        // Create a new user document
         await setDoc(userRef, {
           uid: result.user.uid,
           email: result.user.email,
@@ -166,7 +159,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           lastLogin: new Date(),
         })
       } else {
-        await setDoc(userRef, { lastLogin: new Date() }, { merge: true })
+        // Update lastLogin
+        await setDoc(
+          userRef,
+          {
+            lastLogin: new Date(),
+          },
+          { merge: true },
+        )
       }
 
       toast({
@@ -174,46 +174,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         description: "You have successfully signed in!",
       })
     } catch (error: any) {
-      console.error("Google Sign-In Error:", error)
+      console.error("Error signing in with Google:", error)
       toast({
         variant: "destructive",
-        title: "Sign-In Failed",
-        description: error.message || "Unable to sign in with Google",
+        title: "Error",
+        description: error.message || "Failed to sign in with Google",
       })
     }
   }
 
   const signInWithEmail = async (email: string, password: string) => {
-    if (!isConfigured || !auth) return
+    if (!isConfigured || !auth) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Firebase is not properly configured. Please check your environment variables.",
+      })
+      return
+    }
 
     try {
       await signInWithEmailAndPassword(auth, email, password)
       toast({
-        title: "Signed In",
-        description: "You have successfully signed in.",
+        title: "Success",
+        description: "You have successfully signed in!",
       })
     } catch (error: any) {
-      console.error("Email Sign-In Error:", error)
+      console.error("Error signing in with email:", error)
       toast({
         variant: "destructive",
-        title: "Sign-In Failed",
-        description: error.message || "Invalid email or password",
+        title: "Error",
+        description: error.message || "Failed to sign in",
       })
       throw error
     }
   }
 
   const signUpWithEmail = async (email: string, password: string, name: string) => {
-    if (!isConfigured || !auth || !db) return
+    if (!isConfigured || !auth || !db) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Firebase is not properly configured. Please check your environment variables.",
+      })
+      return
+    }
 
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password)
-      await updateProfile(result.user, { displayName: name })
 
-      if (!db) {
-        throw new Error("Firestore not available")
-      }
+      // Update profile with display name
+      await updateProfile(result.user, {
+        displayName: name,
+      })
 
+      // Create a new user document
       await setDoc(doc(db, "users", result.user.uid), {
         uid: result.user.uid,
         email: result.user.email,
@@ -225,93 +240,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       })
 
       toast({
-        title: "Account Created",
-        description: "Welcome aboard!",
+        title: "Success",
+        description: "Your account has been created!",
       })
     } catch (error: any) {
-      console.error("Sign-Up Error:", error)
+      console.error("Error signing up with email:", error)
       toast({
         variant: "destructive",
-        title: "Sign-Up Failed",
-        description: error.message || "Could not create account",
+        title: "Error",
+        description: error.message || "Failed to create account",
       })
       throw error
     }
   }
 
   const signOut = async () => {
-    if (!isConfigured || !auth) return
+    if (!isConfigured || !auth) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Firebase is not properly configured. Please check your environment variables.",
+      })
+      return
+    }
 
     try {
       await firebaseSignOut(auth)
+      // Clear cookies
       Cookies.remove("user-role", { path: "/" })
       Cookies.remove("firebase-auth-token", { path: "/" })
-      localStorage.removeItem("auth-user")
       toast({
-        title: "Signed Out",
-        description: "You have been logged out.",
+        title: "Success",
+        description: "You have been signed out",
       })
     } catch (error: any) {
-      console.error("Sign-Out Error:", error)
+      console.error("Error signing out:", error)
       toast({
         variant: "destructive",
-        title: "Logout Failed",
-        description: error.message || "Could not sign out",
+        title: "Error",
+        description: error.message || "Failed to sign out",
       })
     }
   }
 
-  const resetPassword = async (email: string) => {
-    if (!isConfigured || !auth) return
-
-    try {
-      await sendPasswordResetEmail(auth, email)
-      toast({
-        title: "Password Reset Sent",
-        description: "Check your email for the reset link.",
-      })
-    } catch (error: any) {
-      console.error("Reset Error:", error)
-      toast({
-        variant: "destructive",
-        title: "Reset Failed",
-        description: error.message || "Could not send reset email",
-      })
-      throw error
-    }
-  }
-
-  const updateDisplayName = async (name: string, photoURL?: string) => {
-    if (!isConfigured || !auth || !auth.currentUser || !db) return
-
-    try {
-      await updateProfile(auth.currentUser, {
-        displayName: name,
-        photoURL: photoURL || null,
-      })
-
-      await setDoc(doc(db, "users", auth.currentUser.uid), {
-        displayName: name,
-        photoURL: photoURL || null,
-      }, { merge: true })
-
-      setUser({ ...auth.currentUser, displayName: name, photoURL } as User)
-
-      toast({
-        title: "Profile Updated",
-        description: "Your changes have been saved.",
-      })
-    } catch (error: any) {
-      console.error("Update Profile Error:", error)
-      toast({
-        variant: "destructive",
-        title: "Update Failed",
-        description: error.message || "Could not update profile",
-      })
-      throw error
-    }
-  }
-
+  // Add logout as an alias for signOut for backward compatibility
   const logout = signOut
 
   return (
@@ -323,12 +295,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         signInWithEmail,
         signUpWithEmail,
         signOut,
-        logout,
-        resetPassword,
-        updateDisplayName,
+        logout, // Added alias for signOut
       }}
     >
       {children}
     </AuthContext.Provider>
   )
 }
+
