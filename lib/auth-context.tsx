@@ -175,23 +175,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       })
     } catch (error: any) {
       console.error("Error signing in with Google:", error)
-
-      // Handle specific error for popup closed by user
-      if (error.code === "auth/popup-closed-by-user") {
-        // This is an expected user action, so we can show a more friendly message
-        toast({
-          title: "Sign-in cancelled",
-          description: "You closed the sign-in window. Please try again when you're ready.",
-          variant: "default",
-        })
-      } else {
-        // Handle other authentication errors
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message || "Failed to sign in with Google",
-        })
-      }
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to sign in with Google",
+      })
     }
   }
 
@@ -257,21 +245,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       })
     } catch (error: any) {
       console.error("Error signing up with email:", error)
-
-      // Handle specific error for email already in use
-      if (error.code === "auth/email-already-in-use") {
-        toast({
-          variant: "destructive",
-          title: "Account already exists",
-          description: "This email address is already registered. Please sign in instead.",
-        })
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: error.message || "Failed to create account",
-        })
-      }
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to create account",
+      })
       throw error
     }
   }
@@ -324,3 +302,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   )
 }
+
