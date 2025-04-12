@@ -18,6 +18,7 @@ interface Enrollment {
   id: string
   userId: string
   hackathonId: string
+  hackathontitle:string
   status: "active" | "completed" | "withdrawn"
   teamId?: string
   submissionUrl?: string
@@ -39,6 +40,7 @@ interface Hackathon {
   participants: number
   maxParticipants: number
   hostedBy: string
+  
 }
 
 interface Team {

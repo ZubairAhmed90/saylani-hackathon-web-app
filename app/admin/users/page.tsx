@@ -202,9 +202,11 @@ export default function AdminUsersPage() {
                 if (hackathonDocSnap.exists()) {
                   const data = hackathonDocSnap.data() as Hackathon;
 
+                  
+
                   return {
                     id: hackathonDocSnap.id,
-                    name: data.name || "Unknown Hackathon",
+                    name: data.name,
                     startDate: data.startDate,
                     endDate: data.endDate,
                   };
@@ -454,13 +456,13 @@ export default function AdminUsersPage() {
     setShowHackathonDropdown(false);
   };
 
-  // if (loading) {
-  //   return (
-  //     <div className="flex justify-center items-center min-h-[calc(100vh-64px)]">
-  //       <div className="animate-pulse text-xl">Loading users data...</div>
-  //     </div>
-  //   )
-  // }
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-[calc(100vh-64px)]">
+        <div className="animate-pulse text-xl">Loading users data...</div>
+      </div>
+    )
+  }
 
   if (!isAdmin) {
     return (

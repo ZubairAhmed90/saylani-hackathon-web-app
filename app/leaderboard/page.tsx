@@ -37,13 +37,14 @@ interface Submission {
 export default function PublicLeaderboardPage() {
   const [hackathons, setHackathons] = useState<Hackathon[]>([])
   const [selectedHackathon, setSelectedHackathon] = useState<string>("all")
-  const [submissions, setSubmissions] = useState<Submission[]>([])
+  const [submissions, setEnrollments] = useState<Submission[]>([])
   const [filteredSubmissions, setFilteredSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortOrder, setSortOrder] = useState<"highest" | "lowest">("highest")
 
   const { db } = useFirebase()
+
 
   useEffect(() => {
     const fetchHackathons = async () => {
@@ -75,12 +76,12 @@ export default function PublicLeaderboardPage() {
     const fetchSubmissions = async () => {
       try {
         // Create a query for submissions with scores
-        const submissionsCollection = collection(db, "submissions")
+        const submissionsCollection = collection(db, "enrollments")
         const submissionsQuery = query(submissionsCollection, where("score", ">=", 0), orderBy("score", "desc"))
 
         const submissionsSnapshot = await getDocs(submissionsQuery)
 
-        const submissionsData = await Promise.all(
+        const enrollmentData = await Promise.all(
           submissionsSnapshot.docs.map(async (doc) => {
             const data = doc.data()
 
@@ -110,7 +111,7 @@ export default function PublicLeaderboardPage() {
           }),
         )
 
-        setSubmissions(submissionsData)
+        setEnrollments(enrollmentData)
         setLoading(false)
       } catch (error) {
         console.error("Error fetching submissions:", error)
@@ -128,7 +129,9 @@ export default function PublicLeaderboardPage() {
     // Filter by hackathon
     if (selectedHackathon !== "all") {
       filtered = filtered.filter((submission) => submission.hackathonId === selectedHackathon)
+
     }
+
 
     // Filter by search query
     if (searchQuery) {
@@ -183,6 +186,8 @@ export default function PublicLeaderboardPage() {
     )
   }
 
+  console.log("filteredSubmissions" , filteredSubmissions);
+  
   return (
     <div className="container mx-auto py-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -190,7 +195,6 @@ export default function PublicLeaderboardPage() {
           <h1 className="text-4xl font-bold">Leaderboard</h1>
           <p className="text-gray-400 mt-1">See the top performers across all hackathons</p>
         </div>
-
         <Button asChild className="bg-[#00FFBF] text-black hover:bg-[#00FFBF]/90">
           <Link href="/hackathons">View Hackathons</Link>
         </Button>
@@ -235,16 +239,16 @@ export default function PublicLeaderboardPage() {
         </DropdownMenu>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3  gap-8">
         <div className="lg:col-span-2">
-          <div className="bg-[#121212] border border-gray-800 rounded-lg p-6">
-            <div className="flex items-center mb-6">
+          <div className="bg-[#121212] min-h-[400px] border border-gray-800 rounded-lg p-6">
+            <div className="flex items-center mb-6 ">
               <Trophy className="h-6 w-6 text-yellow-400 mr-3" />
               <h2 className="text-2xl font-bold">Top Performers</h2>
             </div>
 
             {filteredSubmissions.length === 0 ? (
-              <div className="text-center py-16">
+              <div className="text-center py-16 ">
                 <Trophy className="h-16 w-16 text-gray-500 mx-auto mb-4" />
                 <h3 className="text-xl font-medium mb-2">No leaderboard entries found</h3>
                 <p className="text-gray-400 max-w-md mx-auto">
@@ -254,7 +258,7 @@ export default function PublicLeaderboardPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-6">
+              <div className="space-y-6 ">
                 {filteredSubmissions.slice(0, 10).map((submission, index) => (
                   <div
                     key={submission.id}
@@ -271,18 +275,18 @@ export default function PublicLeaderboardPage() {
                     </div>
 
                     <div className="ml-4 flex-1 flex items-center">
-                      <Avatar className="h-10 w-10 border">
+                      <Avatar className="h-10 w-10 ">
                         {submission.userPhotoURL ? (
                           <AvatarImage src={submission.userPhotoURL} alt={submission.userName} />
                         ) : null}
                         <AvatarFallback>{getInitials(submission.userName)}</AvatarFallback>
                       </Avatar>
 
-                      <div className="ml-3 flex-1">
+                      <div className="ml-3 flex-1 ">
                         <div className="flex items-center">
                           <h3 className="font-medium">{submission.userName}</h3>
                           {index === 0 && (
-                            <Badge className="ml-2 bg-yellow-500/20 text-yellow-300">Top Performer</Badge>
+                            <Badge className="ml-2 bg-yellow-500/20 hover:bg-yellow-700/70 text-yellow-300">Top Performer</Badge>
                           )}
                         </div>
                         <p className="text-sm text-gray-400">{submission.hackathonTitle}</p>
