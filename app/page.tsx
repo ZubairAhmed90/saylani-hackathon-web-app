@@ -48,7 +48,7 @@ export default function Home() {
                   <div className="flex h-14 w-14 items-center justify-center rounded-full bg-[#00FFBF] text-black hover:bg-[#00FFBF]/90">
                     <Code className="h-7 w-7 text-white" />
                   </div>
-                  <h3 className="text-2xl font-semibold">Hackathon Management</h3>
+                  <h3 className="text-2xl font-semibold">Hackathon </h3>
                   <p className="text-gray-500 text-center text-lg">
                     Create, manage, and participate in hackathons with ease.
                   </p>

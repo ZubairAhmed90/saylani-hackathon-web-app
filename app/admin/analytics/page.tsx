@@ -549,55 +549,67 @@ export default function AdminAnalyticsPage() {
             </Card>
 
             <Card className="bg-[#1A1A1A] border-gray-800">
-              <CardHeader>
-                <CardTitle>Submission Types</CardTitle>
-                <CardDescription>Team vs Individual submissions</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={analyticsData.categoryDistribution}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {analyticsData.categoryDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <ChartTooltip
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            return (
-                              <div className="rounded-lg border bg-background p-2 shadow-sm">
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="flex flex-col">
-                                    <span className="text-[0.70rem] uppercase text-muted-foreground">Category</span>
-                                    <span className="font-bold text-muted-foreground">{payload[0].name}</span>
-                                  </div>
-                                  <div className="flex flex-col">
-                                    <span className="text-[0.70rem] uppercase text-muted-foreground">Count</span>
-                                    <span className="font-bold">{payload[0].value}</span>
-                                  </div>
-                                </div>
-                              </div>
-                            )
-                          }
-                          return null
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+               <CardHeader>
+    <CardTitle>Submission Types</CardTitle>
+    <CardDescription>Team vs individual submissions</CardDescription>
+               </CardHeader>
+               <CardContent className="flex flex-col items-center">
+                 <div className="h-[250px] w-full relative">
+                   <ResponsiveContainer width="100%" height="100%">
+                     <PieChart>
+                       <Pie
+                         data={analyticsData.categoryDistribution}
+                         cx="50%"
+                         cy="50%"
+                         innerRadius={60}
+                         outerRadius={80}
+                         paddingAngle={5}
+                         dataKey="value"
+                         label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                         labelLine={false}
+                       >
+                         {analyticsData.categoryDistribution.map((entry, index) => (
+                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                         ))}
+              </Pie>
+              <ChartTooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                return (
+                  <div className="rounded-lg border bg-background p-2 shadow-sm">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col">
+                        <span className="text-[0.70rem] uppercase text-muted-foreground">Type</span>
+                        <span className="font-bold text-muted-foreground">{payload[0].name}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-[0.70rem] uppercase text-muted-foreground">Count</span>
+                        <span className="font-bold">{payload[0].value}</span>
+                      </div>
+                    </div>
+                  </div>
+                )
+              }
+              return null
+            }}
+          />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+    <div className="flex justify-center gap-4 mt-4">
+      {analyticsData.categoryDistribution.map((entry, index) => (
+        <div key={entry.name} className="flex items-center">
+          <div
+            className="w-3 h-3 rounded-full mr-2"
+            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+          />
+          <span className="text-sm text-gray-400">{entry.name}</span>
+        </div>
+      ))}
+    </div>
+  </CardContent>
+               </Card>
+            </div>
 
           <Card className="bg-[#1A1A1A] border-gray-800">
             <CardHeader>
@@ -670,7 +682,7 @@ export default function AdminAnalyticsPage() {
 
                       <Avatar className="h-10 w-10 mr-4 border">
                         {participant.userAvatar ? (
-                          <AvatarImage src={participant.userAvatar} alt={participant.userName} />
+                          <AvatarImage src={participant.userAvatar || "/placeholder.svg"} alt={participant.userName} />
                         ) : null}
                         <AvatarFallback>{getInitials(participant.userName)}</AvatarFallback>
                       </Avatar>
@@ -712,4 +724,3 @@ export default function AdminAnalyticsPage() {
     </div>
   )
 }
-
