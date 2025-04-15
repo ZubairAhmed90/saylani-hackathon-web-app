@@ -171,14 +171,8 @@ export default function ApplyHackathonPage() {
         if (!enrollmentsSnapshot.empty) {
           const enrollmentData = enrollmentsSnapshot.docs[0].data()
           setUserEnrollment(enrollmentData.hackathonId)
-
-          if (hackathon && enrollmentData.hackathonId === hackathon.id) {
-            setError("You are already enrolled in this hackathon")
-          } else {
-            setError(
-              "You are already enrolled in another hackathon. You can only participate in one hackathon at a time.",
-            )
-          }
+        
+          
         }
 
         // Check if user is part of a team that's enrolled in any hackathon
