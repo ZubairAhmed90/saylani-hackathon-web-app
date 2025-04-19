@@ -42,6 +42,7 @@ export default function SubmitProjectPage() {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [activeHackathons, setActiveHackathons] = useState<Hackathon[]>([])
+  const [submissionClosed, setSubmissionClosed] = useState(false) // New state for submission status
 
   // Form state
   const [githubUrl, setGithubUrl] = useState("")
@@ -92,7 +93,8 @@ export default function SubmitProjectPage() {
           const hackathonDoc = await getDoc(doc(db, "hackathons", hackathonId))
           if (hackathonDoc.exists()) {
             const hackathonData = hackathonDoc.data() as Omit<Hackathon, "id">
-            setHackathon({ id: hackathonDoc.id, ...hackathonData })
+            const fetchedHackathon = { id: hackathonDoc.id, ...hackathonData }
+            setHackathon(fetchedHackathon)
 
             const enrollmentQuery = query(
               enrollmentsCollection,
@@ -122,6 +124,15 @@ export default function SubmitProjectPage() {
                 description: "You are not enrolled in this hackathon",
               })
               router.push("/dashboard/my-hackathons")
+            }
+
+            // Check if the hackathon submission window is closed based on endDate
+            if (fetchedHackathon.endDate) {
+              const endDate = fetchedHackathon.endDate.toDate() // Convert Firestore Timestamp to JS Date
+              const currentDate = new Date()
+              if (currentDate > endDate) {
+                setSubmissionClosed(true)
+              }
             }
           }
         }
@@ -281,14 +292,16 @@ export default function SubmitProjectPage() {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="text-xl">Project Submission</CardTitle>
-            <Badge className={hackathon.status === "open" ? "bg-green-600" : "bg-red-600"}>
-              {hackathon.status === "open" ? "Open for Submissions" : "Closed"}
+            <Badge className={submissionClosed || hackathon.status === "closed" ? "bg-red-600" : "bg-green-600"}>
+              {submissionClosed || hackathon.status === "closed" ? "Closed" : "Open for Submissions"}
             </Badge>
           </div>
           <CardDescription>
-            {hackathon.status === "open"
-              ? "Submit your project details below"
-              : "This hackathon is closed for submissions"}
+            {submissionClosed
+              ? "The submission window for this hackathon has ended."
+              : hackathon.status === "closed"
+              ? "This hackathon is closed for submissions."
+              : "Submit your project details below."}
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -310,6 +323,7 @@ export default function SubmitProjectPage() {
                     className="bg-black border-gray-800"
                     placeholder="Enter your name or team name"
                     required
+                    disabled={submissionClosed || hackathon.status === "closed"}
                   />
                 </div>
 
@@ -321,6 +335,7 @@ export default function SubmitProjectPage() {
                     onChange={(e) => setProjectDescription(e.target.value)}
                     className="bg-black border-gray-800 min-h-[150px]"
                     placeholder="Describe your project, its features, and how it addresses the hackathon challenge"
+                    disabled={submissionClosed || hackathon.status === "closed"}
                   />
                 </div>
               </TabsContent>
@@ -339,6 +354,7 @@ export default function SubmitProjectPage() {
                       onChange={(e) => setGithubUrl(e.target.value)}
                       className="bg-black border-gray-800 flex-1"
                       placeholder="https://github.com/username/repo"
+                      disabled={submissionClosed || hackathon.status === "closed"}
                     />
                   </div>
                   <p className="text-xs text-gray-400">Link to your project's source code repository</p>
@@ -357,6 +373,7 @@ export default function SubmitProjectPage() {
                       onChange={(e) => setHostedUrl(e.target.value)}
                       className="bg-black border-gray-800 flex-1"
                       placeholder="https://your-project.vercel.app"
+                      disabled={submissionClosed || hackathon.status === "closed"}
                     />
                   </div>
                   <p className="text-xs text-gray-400">Link to your deployed project (if available)</p>
@@ -368,7 +385,7 @@ export default function SubmitProjectPage() {
             <Button
               type="submit"
               className="w-full bg-[#00FFBF] text-black hover:bg-[#00FFBF]/90"
-              disabled={submitting || hackathon.status === "closed"}
+              disabled={submitting || hackathon.status === "closed" || submissionClosed}
             >
               {submitting ? (
                 <>
@@ -385,4 +402,3 @@ export default function SubmitProjectPage() {
     </div>
   )
 }
-

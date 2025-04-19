@@ -5,7 +5,7 @@ import { useRouter, useParams } from "next/navigation"
 import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { useFirebase } from "@/lib/firebase-context"
-import { doc, getDoc, collection, getDocs, query, where, addDoc, serverTimestamp } from "firebase/firestore"
+import { doc, getDoc, collection, getDocs, query, where, addDoc, serverTimestamp, Timestamp } from "firebase/firestore"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -21,8 +21,8 @@ interface Hackathon {
   id: string
   title: string
   description: string
-  startDate: any
-  endDate: any
+  startDate: Timestamp
+  endDate: Timestamp
   status: "open" | "closed"
   category: string
   participants: number
@@ -30,6 +30,8 @@ interface Hackathon {
   hostedBy: string
   imageUrl?: string
   slug?: string
+  teamSupport: boolean
+  teamSize?: number | null
 }
 
 export default function ApplyHackathonPage() {
@@ -72,45 +74,42 @@ export default function ApplyHackathonPage() {
         let hackathonData = null
 
         // Check if the ID is a valid document ID format
-        // This is a simple check - Firebase IDs are typically alphanumeric
         const isValidDocId = /^[A-Za-z0-9]+$/.test(slugOrId)
 
         if (isValidDocId) {
           try {
-            // Try to fetch by ID first, but wrap in try/catch to handle invalid IDs
             const hackathonDoc = await getDoc(doc(db, "hackathons", slugOrId))
             if (hackathonDoc.exists()) {
+              const data = hackathonDoc.data()
               hackathonData = {
                 id: hackathonDoc.id,
-                ...hackathonDoc.data(),
+                ...data,
+                teamSupport: data.teamSupport ?? false, // Default to false if undefined
+                teamSize: data.teamSize ?? null, // Default to null if undefined
               } as Hackathon
             }
           } catch (idError) {
             console.error("Error fetching by ID:", idError)
-            // Continue to slug query if ID fetch fails
           }
         }
 
-        // If not found by ID, try to find by slug
         if (!hackathonData) {
           console.log("Searching by slug:", slugOrId)
           const hackathonsCollection = collection(db, "hackathons")
-
-          // Get all hackathons and filter by slug
           const hackathonsSnapshot = await getDocs(hackathonsCollection)
 
           for (const doc of hackathonsSnapshot.docs) {
             const data = doc.data()
-            // Check if the slug matches (case insensitive)
             if (data.slug && data.slug.toLowerCase() === slugOrId.toLowerCase()) {
               hackathonData = {
                 id: doc.id,
                 ...data,
+                teamSupport: data.teamSupport ?? false, // Default to false if undefined
+                teamSize: data.teamSize ?? null, // Default to null if undefined
               } as Hackathon
               break
             }
 
-            // If no slug exists, generate one from title and check
             if (!data.slug && data.title) {
               const generatedSlug = data.title
                 .toLowerCase()
@@ -122,6 +121,8 @@ export default function ApplyHackathonPage() {
                   id: doc.id,
                   ...data,
                   slug: generatedSlug,
+                  teamSupport: data.teamSupport ?? false, // Default to false if undefined
+                  teamSize: data.teamSize ?? null, // Default to null if undefined
                 } as Hackathon
                 break
               }
@@ -135,7 +136,6 @@ export default function ApplyHackathonPage() {
           return
         }
 
-        // Generate a slug from the title if not already present
         if (!hackathonData.slug) {
           hackathonData.slug = hackathonData.title
             .toLowerCase()
@@ -163,7 +163,6 @@ export default function ApplyHackathonPage() {
       if (!db || !user) return
 
       try {
-        // Check if user is directly enrolled in any hackathon
         const enrollmentsCollection = collection(db, "enrollments")
         const q = query(enrollmentsCollection, where("userId", "==", user.uid), where("status", "==", "active"))
         const enrollmentsSnapshot = await getDocs(q)
@@ -171,21 +170,15 @@ export default function ApplyHackathonPage() {
         if (!enrollmentsSnapshot.empty) {
           const enrollmentData = enrollmentsSnapshot.docs[0].data()
           setUserEnrollment(enrollmentData.hackathonId)
-        
-          
         }
 
-        // Check if user is part of a team that's enrolled in any hackathon
         const teamsCollection = collection(db, "teams")
         const teamQuery = query(teamsCollection, where("members", "array-contains", user.uid))
         const teamsSnapshot = await getDocs(teamQuery)
 
         if (!teamsSnapshot.empty) {
-          // User is part of at least one team
           for (const teamDoc of teamsSnapshot.docs) {
             const teamData = teamDoc.data()
-
-            // Check if this team is enrolled in a hackathon
             const teamEnrollmentsQuery = query(
               enrollmentsCollection,
               where("teamId", "==", teamDoc.id),
@@ -194,7 +187,6 @@ export default function ApplyHackathonPage() {
             const teamEnrollmentsSnapshot = await getDocs(teamEnrollmentsQuery)
 
             if (!teamEnrollmentsSnapshot.empty) {
-              // Team is enrolled in a hackathon
               setTeamEnrollment(true)
               const teamEnrollmentData = teamEnrollmentsSnapshot.docs[0].data()
 
@@ -208,7 +200,6 @@ export default function ApplyHackathonPage() {
           }
         }
 
-        // Check if user is an admin
         const userDoc = await getDoc(doc(db, "users", user.uid))
         if (userDoc.exists() && userDoc.data().role === "admin") {
           setIsAdmin(true)
@@ -221,31 +212,24 @@ export default function ApplyHackathonPage() {
     fetchHackathon()
     checkUserEnrollment()
 
-    // Set up timer to update time remaining
     const timer = setInterval(() => {
       if (hackathon) {
         updateTimeStatus(hackathon)
       }
-    }, 60000) // Update every minute
+    }, 60000)
 
     return () => clearInterval(timer)
   }, [db, user, router, slugOrId, toast, hackathon])
 
   const updateTimeStatus = (hackathon: Hackathon) => {
     const now = new Date().getTime()
-    const startTime = hackathon.startDate.toDate
-      ? hackathon.startDate.toDate().getTime()
-      : new Date(hackathon.startDate).getTime()
-    const endTime = hackathon.endDate.toDate
-      ? hackathon.endDate.toDate().getTime()
-      : new Date(hackathon.endDate).getTime()
+    const startTime = hackathon.startDate.toDate().getTime()
+    const endTime = hackathon.endDate.toDate().getTime()
 
-    // Calculate time remaining
     let timeString = ""
     let statusText = ""
 
     if (now < startTime) {
-      // Hackathon hasn't started yet
       const timeLeft = startTime - now
       const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24))
       const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
@@ -258,7 +242,6 @@ export default function ApplyHackathonPage() {
 
       statusText = "Registration open"
     } else if (now < endTime) {
-      // Hackathon is in progress
       const timeLeft = endTime - now
       const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24))
       const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
@@ -271,7 +254,6 @@ export default function ApplyHackathonPage() {
 
       statusText = "Hackathon in progress"
     } else {
-      // Hackathon has ended
       timeString = "0 days"
       statusText = "Hackathon ended"
     }
@@ -286,14 +268,12 @@ export default function ApplyHackathonPage() {
     setApplying(true)
 
     try {
-      // Check if hackathon is full
       if (hackathon.participants >= hackathon.maxParticipants) {
         setError("This hackathon is already full")
         setApplying(false)
         return
       }
 
-      // Create enrollment
       await addDoc(collection(db, "enrollments"), {
         userId: user.uid,
         hackathonId: hackathon.id,
@@ -301,17 +281,12 @@ export default function ApplyHackathonPage() {
         createdAt: serverTimestamp(),
       })
 
-      // Update hackathon participants count
-      // Note: In a production app, you'd use a transaction or cloud function for this
-      // to ensure atomic updates and prevent race conditions
-
       setSuccess(true)
       toast({
         title: "Success!",
         description: "You have successfully enrolled in this hackathon",
       })
 
-      // Redirect after a short delay
       setTimeout(() => {
         router.push("/dashboard/my-hackathons")
       }, 2000)
@@ -322,13 +297,16 @@ export default function ApplyHackathonPage() {
     }
   }
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: Timestamp | null) => {
     if (!timestamp) return "N/A"
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp)
-    return date.toLocaleDateString("en-US", {
+    const date = timestamp.toDate()
+    return date.toLocaleString("en-US", {
       year: "numeric",
       month: "short",
       day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
     })
   }
 
@@ -384,7 +362,6 @@ export default function ApplyHackathonPage() {
 
   return (
     <div className="relative min-h-screen">
-      {/* Particles Background */}
       <Particles
         id="tsparticles"
         init={particlesInit}
@@ -452,7 +429,6 @@ export default function ApplyHackathonPage() {
           </Alert>
         ) : null}
 
-        {/* Details Card */}
         <Card className="bg-[#1A1A1A] border-gray-800 mb-6">
           <CardHeader>
             <div className="flex justify-between items-start">
@@ -491,7 +467,6 @@ export default function ApplyHackathonPage() {
         </Card>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Description Card */}
           <Card className="bg-[#1A1A1A] border-gray-800 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Hackathon Description</CardTitle>
@@ -520,14 +495,15 @@ export default function ApplyHackathonPage() {
                     By applying to this hackathon, you agree to follow all rules and guidelines set by the organizers.
                   </p>
                   <p className="text-gray-400 text-sm mt-2">
-                    You can create or join a team after enrolling in the hackathon.
+                    {hackathon.teamSupport
+                      ? `You can create or join a team (size: ${hackathon.teamSize ?? "N/A"}) after enrolling in the hackathon.`
+                      : "This hackathon is for individual participants only."}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Image and Action Card */}
           <Card className="bg-[#1A1A1A] border-gray-800 overflow-hidden">
             <CardHeader className="pb-2">
               <CardTitle className="text-lg">Time Remaining</CardTitle>
@@ -584,4 +560,3 @@ export default function ApplyHackathonPage() {
     </div>
   )
 }
-

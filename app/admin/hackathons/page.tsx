@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
@@ -39,6 +38,8 @@ import {
 import { ImageUpload } from "@/components/image-upload"
 import { uploadImage } from "@/lib/cloudinary"
 import Image from "next/image"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 
 interface Hackathon {
   id: string
@@ -52,6 +53,9 @@ interface Hackathon {
   maxParticipants: number
   hostedBy: string
   imageUrl?: string
+  teamSupport: boolean
+  teamSize?: number
+  duration?: string | null
 }
 
 export default function AdminHackathonsPage() {
@@ -64,11 +68,17 @@ export default function AdminHackathonsPage() {
   const [description, setDescription] = useState("")
   const [startDate, setStartDate] = useState("")
   const [endDate, setEndDate] = useState("")
+  const [duration, setDuration] = useState("")
   const [category, setCategory] = useState("")
   const [maxParticipants, setMaxParticipants] = useState(50)
   const [imageFile, setImageFile] = useState<File | null>(null)
+  const [teamSupport, setTeamSupport] = useState(false)
+  const [teamSize, setTeamSize] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  // Validation error states for create form
+  const [errors, setErrors] = useState<{ [key: string]: string }>({})
 
   // Form states for editing hackathon
   const [editingHackathon, setEditingHackathon] = useState<Hackathon | null>(null)
@@ -76,10 +86,16 @@ export default function AdminHackathonsPage() {
   const [editDescription, setEditDescription] = useState("")
   const [editStartDate, setEditStartDate] = useState("")
   const [editEndDate, setEditEndDate] = useState("")
+  const [editDuration, setEditDuration] = useState("")
   const [editCategory, setEditCategory] = useState("")
   const [editMaxParticipants, setEditMaxParticipants] = useState(50)
   const [editImageFile, setEditImageFile] = useState<File | null>(null)
+  const [editTeamSupport, setEditTeamSupport] = useState(false)
+  const [editTeamSize, setEditTeamSize] = useState("")
   const [editDialogOpen, setEditDialogOpen] = useState(false)
+
+  // Validation error states for edit form
+  const [editErrors, setEditErrors] = useState<{ [key: string]: string }>({})
 
   const { user } = useAuth()
   const { db } = useFirebase()
@@ -142,6 +158,256 @@ export default function AdminHackathonsPage() {
     checkAdmin()
   }, [db, user, router, toast])
 
+  const validateCreateForm = () => {
+    const newErrors: { [key: string]: string } = {}
+
+    if (!title) {
+      newErrors.title = "Title is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Title is required",
+      })
+    }
+
+    if (!description) {
+      newErrors.description = "Description is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Description is required",
+      })
+    }
+
+    if (!startDate) {
+      newErrors.startDate = "Start Date is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Start Date is required",
+      })
+    }
+
+    // Only validate endDate if duration is not "6"
+    if (duration !== "6" && !endDate) {
+      newErrors.endDate = "End Date is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "End Date is required",
+      })
+    }
+
+    if (!category) {
+      newErrors.category = "Category is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Category is required",
+      })
+    }
+
+    if (!maxParticipants) {
+      newErrors.maxParticipants = "Max Participants is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Max Participants is required",
+      })
+    }
+
+    if (maxParticipants <= 0) {
+      newErrors.maxParticipants = "Max Participants must be a positive number"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Max Participants must be a positive number",
+      })
+    }
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const startDateTime = startDate ? new Date(startDate) : null
+    if (startDateTime) {
+      startDateTime.setHours(0, 0, 0, 0)
+      if (startDateTime < today) {
+        newErrors.startDate = "Start Date must be today or in the future"
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Start Date must be today or in the future",
+        })
+      }
+    }
+
+    // Validate End Date is after Start Date only if duration is not "6"
+    if (duration !== "6") {
+      const endDateTime = endDate ? new Date(endDate) : null
+      if (startDateTime && endDateTime) {
+        endDateTime.setHours(0, 0, 0, 0)
+        if (endDateTime <= startDateTime) {
+          newErrors.endDate = "End Date must be after Start Date"
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "End Date must be after Start Date",
+          })
+        }
+
+        // If duration is provided (and not "6"), ensure End Date matches Start Date + Duration
+        if (duration) {
+          const calculatedEndDate = new Date(startDateTime.getTime() + parseInt(duration) * 60 * 60 * 1000)
+          calculatedEndDate.setHours(0, 0, 0, 0)
+          if (endDateTime.getTime() !== calculatedEndDate.getTime()) {
+            newErrors.endDate = "End Date must match the Start Date plus the selected Duration"
+            toast({
+              variant: "destructive",
+              title: "Validation Error",
+              description: "End Date must match the Start Date plus the selected Duration",
+            })
+          }
+        }
+      }
+    }
+
+    if (teamSupport && !teamSize) {
+      newErrors.teamSize = "Please select a team size if Team Support is enabled"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please select a team size if Team Support is enabled",
+      })
+    }
+
+    setErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const validateEditForm = () => {
+    const newErrors: { [key: string]: string } = {}
+
+    if (!editTitle) {
+      newErrors.editTitle = "Title is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Title is required",
+      })
+    }
+
+    if (!editDescription) {
+      newErrors.editDescription = "Description is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Description is required",
+      })
+    }
+
+    if (!editStartDate) {
+      newErrors.editStartDate = "Start Date is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Start Date is required",
+      })
+    }
+
+    // Only validate editEndDate if editDuration is not "6"
+    if (editDuration !== "6" && !editEndDate) {
+      newErrors.editEndDate = "End Date is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "End Date is required",
+      })
+    }
+
+    if (!editCategory) {
+      newErrors.editCategory = "Category is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Category is required",
+      })
+    }
+
+    if (!editMaxParticipants) {
+      newErrors.editMaxParticipants = "Max Participants is required"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Max Participants is required",
+      })
+    }
+
+    if (editMaxParticipants <= 0) {
+      newErrors.editMaxParticipants = "Max Participants must be a positive number"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Max Participants must be a positive number",
+      })
+    }
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const startDateTime = editStartDate ? new Date(editStartDate) : null
+    if (startDateTime) {
+      startDateTime.setHours(0, 0, 0, 0)
+      if (startDateTime < today) {
+        newErrors.editStartDate = "Start Date must be today or in the future"
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Start Date must be today or in the future",
+        })
+      }
+    }
+
+    // Validate End Date is after Start Date only if duration is not "6"
+    if (editDuration !== "6") {
+      const endDateTime = editEndDate ? new Date(editEndDate) : null
+      if (startDateTime && endDateTime) {
+        endDateTime.setHours(0, 0, 0, 0)
+        if (endDateTime <= startDateTime) {
+          newErrors.editEndDate = "End Date must be after Start Date"
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "End Date must be after Start Date",
+          })
+        }
+
+        // If duration is provided (and not "6"), ensure End Date matches Start Date + Duration
+        if (editDuration) {
+          const calculatedEndDate = new Date(startDateTime.getTime() + parseInt(editDuration) * 60 * 60 * 1000)
+          calculatedEndDate.setHours(0, 0, 0, 0)
+          if (endDateTime.getTime() !== calculatedEndDate.getTime()) {
+            newErrors.editEndDate = "End Date must match the Start Date plus the selected Duration"
+            toast({
+              variant: "destructive",
+              title: "Validation Error",
+              description: "End Date must match the Start Date plus the selected Duration",
+            })
+          }
+        }
+      }
+    }
+
+    if (editTeamSupport && !editTeamSize) {
+      newErrors.editTeamSize = "Please select a team size if Team Support is enabled"
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please select a team size if Team Support is enabled",
+      })
+    }
+
+    setEditErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
   const handleCreateHackathon = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -154,62 +420,72 @@ export default function AdminHackathonsPage() {
       return
     }
 
-    if (!title || !description || !startDate || !endDate || !category || !maxParticipants) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please fill in all required fields",
-      })
+    const isValid = validateCreateForm()
+    if (!isValid) {
       return
     }
 
     setSubmitting(true)
 
     try {
-      // Upload image if provided
       let imageUrl = null
       if (imageFile) {
         imageUrl = await uploadImage(imageFile)
       }
 
-      // Convert string dates to Date objects first, then to Timestamps
-      const startTimestamp = Timestamp.fromDate(new Date(startDate))
-      const endTimestamp = Timestamp.fromDate(new Date(endDate))
+      const startDateTime = new Date(startDate)
+      startDateTime.setHours(0, 0, 0, 0)
 
-      // Create new hackathon with proper data types
+      let endDateTime: Date
+      if (duration === "6") {
+        // If duration is 6 hours, calculate endDateTime as startDateTime + 6 hours
+        endDateTime = new Date(startDateTime.getTime() + 6 * 60 * 60 * 1000)
+      } else {
+        // Otherwise, use the provided endDate
+        endDateTime = new Date(endDate)
+      }
+      endDateTime.setHours(0, 0, 0, 0)
+
+      const startTimestamp = Timestamp.fromDate(startDateTime)
+      const endTimestamp = Timestamp.fromDate(endDateTime)
+
       const newHackathonData = {
         title,
         description,
         startDate: startTimestamp,
         endDate: endTimestamp,
-        status: "open",
+        duration: duration || null,
+        status: "open" as const,
         category,
         participants: 0,
         maxParticipants: Number(maxParticipants),
         hostedBy: user?.displayName || "Admin",
         createdAt: Timestamp.now(),
-        imageUrl: imageUrl, // Add the image URL to the hackathon data
+        imageUrl: imageUrl,
+        teamSupport,
+        teamSize: teamSupport ? Number(teamSize) : null,
       }
 
-      // Add document to collection
-      const docRef = await addDoc(collection(db, "hackathons"), newHackathonData)
+      await addDoc(collection(db, "hackathons"), newHackathonData)
 
       toast({
         title: "Success",
         description: "Hackathon created successfully",
       })
 
-      // Reset form
       setTitle("")
       setDescription("")
       setStartDate("")
       setEndDate("")
+      setDuration("")
       setCategory("")
       setMaxParticipants(50)
       setImageFile(null)
+      setTeamSupport(false)
+      setTeamSize("")
+      setErrors({})
       setCreateDialogOpen(false)
 
-      // Refresh hackathons
       const hackathonsCollection = collection(db, "hackathons")
       const hackathonsSnapshot = await getDocs(hackathonsCollection)
 
@@ -240,6 +516,12 @@ export default function AdminHackathonsPage() {
     setEditCategory(hackathon.category)
     setEditMaxParticipants(hackathon.maxParticipants)
     setEditImageFile(null)
+
+    setEditDuration(hackathon.duration || "")
+    
+    setEditTeamSupport(hackathon.teamSupport || false)
+    setEditTeamSize(hackathon.teamSize ? hackathon.teamSize.toString() : "")
+    setEditErrors({})
     setEditDialogOpen(true)
   }
 
@@ -248,37 +530,47 @@ export default function AdminHackathonsPage() {
 
     if (!db || !editingHackathon) return
 
-    if (!editTitle || !editDescription || !editStartDate || !editEndDate || !editCategory || !editMaxParticipants) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please fill in all required fields",
-      })
+    const isValid = validateEditForm()
+    if (!isValid) {
       return
     }
 
     setSubmitting(true)
 
     try {
-      // Upload image if provided
       let imageUrl = editingHackathon.imageUrl
       if (editImageFile) {
         imageUrl = await uploadImage(editImageFile)
       }
 
-      const startTimestamp = Timestamp.fromDate(new Date(editStartDate))
-      const endTimestamp = Timestamp.fromDate(new Date(editEndDate))
+      const startDateTime = new Date(editStartDate)
+      startDateTime.setHours(0, 0, 0, 0)
 
-      // Update hackathon
+      let endDateTime: Date
+      if (editDuration === "6") {
+        // If duration is 6 hours, calculate endDateTime as startDateTime + 6 hours
+        endDateTime = new Date(startDateTime.getTime() + 6 * 60 * 60 * 1000)
+      } else {
+        // Otherwise, use the provided editEndDate
+        endDateTime = new Date(editEndDate)
+      }
+      endDateTime.setHours(0, 0, 0, 0)
+
+      const startTimestamp = Timestamp.fromDate(startDateTime)
+      const endTimestamp = Timestamp.fromDate(endDateTime)
+
       await updateDoc(doc(db, "hackathons", editingHackathon.id), {
         title: editTitle,
         description: editDescription,
         startDate: startTimestamp,
         endDate: endTimestamp,
+        duration: editDuration || null,
         category: editCategory,
         maxParticipants: Number(editMaxParticipants),
         updatedAt: Timestamp.now(),
-        imageUrl: imageUrl, // Add or update the image URL
+        imageUrl: imageUrl,
+        teamSupport: editTeamSupport,
+        teamSize: editTeamSupport ? Number(editTeamSize) : null,
       })
 
       toast({
@@ -286,11 +578,10 @@ export default function AdminHackathonsPage() {
         description: "Hackathon updated successfully",
       })
 
-      // Reset form and close dialog
       setEditingHackathon(null)
+      setEditErrors({})
       setEditDialogOpen(false)
 
-      // Refresh hackathons
       const hackathonsCollection = collection(db, "hackathons")
       const hackathonsSnapshot = await getDocs(hackathonsCollection)
 
@@ -316,7 +607,6 @@ export default function AdminHackathonsPage() {
     if (!db) return
 
     try {
-      // Delete hackathon
       await deleteDoc(doc(db, "hackathons", id))
 
       toast({
@@ -324,7 +614,6 @@ export default function AdminHackathonsPage() {
         description: "Hackathon deleted successfully",
       })
 
-      // Refresh hackathons
       setHackathons(hackathons.filter((h) => h.id !== id))
     } catch (error: any) {
       console.error("Error deleting hackathon:", error)
@@ -340,9 +629,8 @@ export default function AdminHackathonsPage() {
     if (!db) return
 
     try {
-      const newStatus = hackathon.status === "open" ? "closed" : ("open" as "open" | "closed")
+      const newStatus: "open" | "closed" = hackathon.status === "open" ? "closed" : "open"
 
-      // Update hackathon status
       await updateDoc(doc(db, "hackathons", hackathon.id), {
         status: newStatus,
         updatedAt: Timestamp.now(),
@@ -353,15 +641,11 @@ export default function AdminHackathonsPage() {
         description: `Hackathon ${newStatus === "open" ? "opened" : "closed"} successfully`,
       })
 
-      // Refresh hackathons
-      const updatedHackathons = hackathons.map((h) => {
-        if (h.id === hackathon.id) {
-          return { ...h, status: newStatus }
-        }
-        return h
-      })
-
-      setHackathons(updatedHackathons)
+      setHackathons(
+        hackathons.map((h) =>
+          h.id === hackathon.id ? { ...h, status: newStatus } : h
+        )
+      )
     } catch (error: any) {
       console.error("Error toggling hackathon status:", error)
       toast({
@@ -405,68 +689,32 @@ export default function AdminHackathonsPage() {
           <p className="text-gray-400 mt-1">Create, edit, and manage hackathons on the platform</p>
         </div>
 
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <Dialog open={createDialogOpen} onOpenChange={(open) => {
+          setCreateDialogOpen(open)
+          if (!open) setErrors({})
+        }}>
           <DialogTrigger asChild>
             <Button className="bg-[#00FFBF] text-black hover:bg-[#00FFBF]/90">
               <Plus className="mr-2 h-4 w-4" />
               Create Hackathon
             </Button>
           </DialogTrigger>
-          <DialogContent className="bg-[#1A1A1A] border-gray-800 sm:max-w-md">
+          <DialogContent className="bg-[#1A1A1A] border-gray-800 sm:max-w-4xl">
             <DialogHeader>
               <DialogTitle>Create a New Hackathon</DialogTitle>
               <DialogDescription>Fill in the details to create a new hackathon</DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateHackathon} className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="bg-black border-gray-800"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="bg-black border-gray-800 min-h-[100px]"
-                />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleCreateHackathon} className="py-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="start-date">Start Date</Label>
+                  <Label htmlFor="title">Title</Label>
                   <Input
-                    id="start-date"
-                    type="date"
-                    value={startDate || ""}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="bg-black border-gray-800"
+                    id="title"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    className={`bg-black border-gray-800 ${errors.title ? "border-red-500" : ""}`}
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="end-date">End Date</Label>
-                  <Input
-                    id="end-date"
-                    type="date"
-                    value={endDate || ""}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="bg-black border-gray-800"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Input
-                    id="category"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="bg-black border-gray-800"
-                  />
+                  {errors.title && <p className="text-red-500 text-sm">{errors.title}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="max-participants">Max Participants</Label>
@@ -476,15 +724,110 @@ export default function AdminHackathonsPage() {
                     min="1"
                     value={maxParticipants}
                     onChange={(e) => setMaxParticipants(Number(e.target.value))}
-                    className="bg-black border-gray-800"
+                    className={`bg-black border-gray-800 ${errors.maxParticipants ? "border-red-500" : ""}`}
                   />
+                  {errors.maxParticipants && <p className="text-red-500 text-sm">{errors.maxParticipants}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="start-date">Start Date</Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={startDate || ""}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className={`bg-black border-gray-800 ${errors.startDate ? "border-red-500" : ""}`}
+                    placeholder="mm/dd/yyyy"
+                  />
+                  {errors.startDate && <p className="text-red-500 text-sm">{errors.startDate}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end-date">End Date</Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={endDate || ""}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className={`bg-black border-gray-800 ${errors.endDate ? "border-red-500" : ""}`}
+                    placeholder="mm/dd/yyyy"
+                  />
+                  {errors.endDate && <p className="text-red-500 text-sm">{errors.endDate}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="duration">Duration (Optional)</Label>
+                  <Select onValueChange={setDuration} value={duration}>
+                    <SelectTrigger className={`bg-black border-gray-800 ${errors.duration ? "border-red-500" : ""}`}>
+                      <SelectValue placeholder="Select duration (optional)" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-black border-gray-800">
+                      <SelectItem value="6">6 hours</SelectItem>
+                      <SelectItem value="12">12 hours</SelectItem>
+                      <SelectItem value="24">24 hours</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {errors.duration && <p className="text-red-500 text-sm">{errors.duration}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category</Label>
+                  <Input
+                    id="category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className={`bg-black border-gray-800 ${errors.category ? "border-red-500" : ""}`}
+                  />
+                  {errors.category && <p className="text-red-500 text-sm">{errors.category}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    className={`bg-black border-gray-800 min-h-[40px] ${errors.description ? "border-red-500" : ""}`}
+                  />
+                  {errors.description && <p className="text-red-500 text-sm">{errors.description}</p>}
+                </div>
+                <div className="space-y-2">
+                  <Label>Team Support</Label>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="team-support"
+                        checked={teamSupport}
+                        onCheckedChange={setTeamSupport}
+                      />
+                      <Label htmlFor="team-support">
+                        {teamSupport ? "Enabled" : "Disabled"}
+                      </Label>
+                    </div>
+                    {teamSupport && (
+                      <div className="flex-1">
+                        <Select onValueChange={setTeamSize} value={teamSize}>
+                          <SelectTrigger className={`bg-black border-gray-800 w-full ${errors.teamSize ? "border-red-500" : ""}`}>
+                            <SelectValue placeholder="Select team size" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-black border-gray-800">
+                            <SelectItem value="2">2</SelectItem>
+                            <SelectItem value="4">4</SelectItem>
+                            <SelectItem value="6">6</SelectItem>
+                            <SelectItem value="10">10</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {errors.teamSize && <p className="text-red-500 text-sm">{errors.teamSize}</p>}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2 md:col-span-3">
+                  <Label>Hackathon Banner Image</Label>
+                  <div className="border-2 border-dashed border-gray-600 rounded-md p-2 text-center">
+                    <ImageUpload onImageChange={setImageFile} />
+                    <p className="text-sm text-gray-400 mt-2">
+                      Recommended size: 1200x600px, Max size: 5MB
+                    </p>
+                  </div>
                 </div>
               </div>
-
-              {/* Image Upload Component */}
-              <ImageUpload onImageChange={setImageFile} />
-
-              <DialogFooter>
+              <DialogFooter className="mt-4">
                 <Button
                   type="submit"
                   className="w-full bg-[#00FFBF] text-black hover:bg-[#00FFBF]/90"
@@ -581,7 +924,10 @@ export default function AdminHackathonsPage() {
                       )}
                     </Button>
 
-                    <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+                    <Dialog open={editDialogOpen} onOpenChange={(open) => {
+                      setEditDialogOpen(open)
+                      if (!open) setEditErrors({})
+                    }}>
                       <DialogTrigger asChild>
                         <Button
                           variant="outline"
@@ -592,61 +938,22 @@ export default function AdminHackathonsPage() {
                           Edit
                         </Button>
                       </DialogTrigger>
-                      <DialogContent className="bg-[#1A1A1A] border-gray-800 sm:max-w-md">
+                      <DialogContent className="bg-[#1A1A1A] border-gray-800 sm:max-w-4xl">
                         <DialogHeader>
                           <DialogTitle>Edit Hackathon</DialogTitle>
                           <DialogDescription>Update the details of this hackathon</DialogDescription>
                         </DialogHeader>
-                        <form onSubmit={handleUpdateHackathon} className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-title">Title</Label>
-                            <Input
-                              id="edit-title"
-                              value={editTitle}
-                              onChange={(e) => setEditTitle(e.target.value)}
-                              className="bg-black border-gray-800"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="edit-description">Description</Label>
-                            <Textarea
-                              id="edit-description"
-                              value={editDescription}
-                              onChange={(e) => setEditDescription(e.target.value)}
-                              className="bg-black border-gray-800 min-h-[100px]"
-                            />
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <form onSubmit={handleUpdateHackathon} className="py-4">
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="space-y-2">
-                              <Label htmlFor="edit-start-date">Start Date</Label>
+                              <Label htmlFor="edit-title">Title</Label>
                               <Input
-                                id="edit-start-date"
-                                type="date"
-                                value={editStartDate}
-                                onChange={(e) => setEditStartDate(e.target.value)}
-                                className="bg-black border-gray-800"
+                                id="edit-title"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                className={`bg-black border-gray-800 ${editErrors.editTitle ? "border-red-500" : ""}`}
                               />
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-end-date">End Date</Label>
-                              <Input
-                                id="edit-end-date"
-                                type="date"
-                                value={editEndDate}
-                                onChange={(e) => setEditEndDate(e.target.value)}
-                                className="bg-black border-gray-800"
-                              />
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="edit-category">Category</Label>
-                              <Input
-                                id="edit-category"
-                                value={editCategory}
-                                onChange={(e) => setEditCategory(e.target.value)}
-                                className="bg-black border-gray-800"
-                              />
+                              {editErrors.editTitle && <p className="text-red-500 text-sm">{editErrors.editTitle}</p>}
                             </div>
                             <div className="space-y-2">
                               <Label htmlFor="edit-max-participants">Max Participants</Label>
@@ -656,18 +963,114 @@ export default function AdminHackathonsPage() {
                                 min="1"
                                 value={editMaxParticipants}
                                 onChange={(e) => setEditMaxParticipants(Number(e.target.value))}
-                                className="bg-black border-gray-800"
+                                className={`bg-black border-gray-800 ${editErrors.editMaxParticipants ? "border-red-500" : ""}`}
                               />
+                              {editErrors.editMaxParticipants && <p className="text-red-500 text-sm">{editErrors.editMaxParticipants}</p>}
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-start-date">Start Date</Label>
+                              <Input
+                                id="edit-start-date"
+                                type="date"
+                                value={editStartDate}
+                                onChange={(e) => setEditStartDate(e.target.value)}
+                                className={`bg-black border-gray-800 ${editErrors.editStartDate ? "border-red-500" : ""}`}
+                              />
+                              {editErrors.editStartDate && <p className="text-red-500 text-sm">{editErrors.editStartDate}</p>}
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-end-date">End Date</Label>
+                              <Input
+                                id="edit-end-date"
+                                type="date"
+                                value={editEndDate}
+                                onChange={(e) => setEditEndDate(e.target.value)}
+                                className={`bg-black border-gray-800 ${editErrors.editEndDate ? "border-red-500" : ""}`}
+                              />
+                              {editErrors.editEndDate && <p className="text-red-500 text-sm">{editErrors.editEndDate}</p>}
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-duration">Duration (Optional)</Label>
+                              <Select onValueChange={setEditDuration} value={editDuration}>
+                                <SelectTrigger className={`bg-black border-gray-800 ${editErrors.editDuration ? "border-red-500" : ""}`}>
+                                  <SelectValue placeholder="Select duration (optional)" />
+                                </SelectTrigger>
+                                <SelectContent className="bg-black border-gray-800">
+                                  <SelectItem value="6">6 hours</SelectItem>
+                                  <SelectItem value="12">12 hours</SelectItem>
+                                  <SelectItem value="24">24 hours</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {editErrors.editDuration && <p className="text-red-500 text-sm">{editErrors.editDuration}</p>}
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-category">Category</Label>
+                              <Input
+                                id="edit-category"
+                                value={editCategory}
+                                onChange={(e) => setEditCategory(e.target.value)}
+                                className={`bg-black border-gray-800 ${editErrors.editCategory ? "border-red-500" : ""}`}
+                              />
+                              {editErrors.editCategory && <p className="text-red-500 text-sm">{editErrors.editCategory}</p>}
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="edit-description">Description</Label>
+                              <Textarea
+                                id="edit-description"
+                                value={editDescription}
+                                onChange={(e) => setEditDescription(e.target.value)}
+                                className={`bg-black border-gray-800 min-h-[40px] ${editErrors.editDescription ? "border-red-500" : ""}`}
+                              />
+                              {editErrors.editDescription && <p className="text-red-500 text-sm">{editErrors.editDescription}</p>}
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Team Support</Label>
+                              <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-2">
+                                  <Switch
+                                    id="edit-team-support"
+                                    checked={editTeamSupport}
+                                    onCheckedChange={setEditTeamSupport}
+                                  />
+                                  <Label htmlFor="edit-team-support">
+                                    {editTeamSupport ? "Enabled" : "Disabled"}
+                                  </Label>
+                                </div>
+                                {editTeamSupport && (
+                                  <div className="flex-1">
+                                    <Select onValueChange={setEditTeamSize} value={editTeamSize}>
+                                      <SelectTrigger className={`bg-black border-gray-800 w-full ${editErrors.editTeamSize ? "border-red-500" : ""}`}>
+                                        <SelectValue placeholder="Select team size" />
+                                      </SelectTrigger>
+                                      <SelectContent className="bg-black border-gray-800">
+                                        <SelectItem value="2">2</SelectItem>
+                                        <SelectItem value="4">4</SelectItem>
+                                        <SelectItem value="6">6</SelectItem>
+                                        <SelectItem value="10">10</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    {editErrors.editTeamSize && <p className="text-red-500 text-sm">{editErrors.editTeamSize}</p>}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            <div className="space-y-2 md:col-span-3">
+                              <Label>Hackathon Banner Image</Label>
+                              <div className="border-2 border-dashed border-gray-600 rounded-md p-2 text-center">
+                                <ImageUpload
+                                  onImageChange={setEditImageFile}
+                                  defaultImage={editingHackathon?.imageUrl}
+                                />
+                                <p className="text-sm text-gray-400 mt-2">
+                                  Recommended size: 1200x600px, Max size: 5MB
+                                </p>
+                              </div>
                             </div>
                           </div>
-
-                          {/* Image Upload Component for Edit */}
-                          <ImageUpload onImageChange={setEditImageFile} defaultImage={editingHackathon?.imageUrl} />
-
-                          <DialogFooter>
+                          <DialogFooter className="mt-4">
                             <Button
                               type="submit"
-                              className="bg-[#00FFBF] text-black hover:bg-[#00FFBF]/90"
+                              className="w-full bg-[#00FFBF] text-black hover:bg-[#00FFBF]/90"
                               disabled={submitting}
                             >
                               {submitting ? (
@@ -930,4 +1333,3 @@ export default function AdminHackathonsPage() {
     </div>
   )
 }
-

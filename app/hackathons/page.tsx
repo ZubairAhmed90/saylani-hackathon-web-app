@@ -85,7 +85,6 @@ export default function HackathonsPage() {
       if (!db || !user) return
 
       try {
-        // Check if user is directly enrolled in any hackathon
         const enrollmentsCollection = collection(db, "enrollments")
         const q = query(enrollmentsCollection, where("userId", "==", user.uid), where("status", "==", "active"))
         const enrollmentsSnapshot = await getDocs(q)
@@ -96,15 +95,12 @@ export default function HackathonsPage() {
           setUserEnrollment(null)
         }
 
-        // Check if user is part of a team that's enrolled in any hackathon
         const teamsCollection = collection(db, "teams")
         const teamQuery = query(teamsCollection, where("members", "array-contains", user.uid))
         const teamsSnapshot = await getDocs(teamQuery)
 
         if (!teamsSnapshot.empty) {
-          // User is part of at least one team
           for (const teamDoc of teamsSnapshot.docs) {
-            // Check if this team is enrolled in a hackathon
             const teamEnrollmentsQuery = query(
               enrollmentsCollection,
               where("teamId", "==", teamDoc.id),
@@ -113,7 +109,6 @@ export default function HackathonsPage() {
             const teamEnrollmentsSnapshot = await getDocs(teamEnrollmentsQuery)
 
             if (!teamEnrollmentsSnapshot.empty) {
-              // Team is enrolled in a hackathon
               setTeamEnrollment(true)
               break
             }
@@ -171,7 +166,6 @@ export default function HackathonsPage() {
   }
 
   const handleLoginToApply = (hackathonId: string) => {
-    // Store the hackathon ID in session storage to redirect after login
     sessionStorage.setItem("redirectAfterLogin", `/hackathons/${hackathonId}/apply`)
     router.push("/auth/login")
   }
@@ -242,7 +236,7 @@ export default function HackathonsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredHackathons.length > 0 ? (
               filteredHackathons.map((hackathon, index) => (
-                <AnimatedCard key={hackathon.id} delay={index * 0.05}>
+                <AnimatedCard key={hackathon.id} delay={index * 0.05} className="flex flex-col min-h-[400px]">
                   {hackathon.imageUrl && (
                     <div className="relative w-full h-[160px] overflow-hidden rounded-t-lg">
                       <Image
@@ -253,16 +247,16 @@ export default function HackathonsPage() {
                       />
                     </div>
                   )}
-                  <AnimatedCardHeader className="pb-2">
+                  <AnimatedCardHeader className="pb-2 flex-grow-0">
                     <div className="flex justify-between items-start">
-                      <CardTitle className="text-xl">{hackathon.title}</CardTitle>
+                      <CardTitle className="text-xl line-clamp-1">{hackathon.title}</CardTitle>
                       <Badge className={hackathon.status === "open" ? "bg-green-600" : "bg-gray-600"}>
                         {hackathon.status === "open" ? "Open" : "Closed"}
                       </Badge>
                     </div>
-                    <CardDescription className="line-clamp-2">{hackathon.description}</CardDescription>
+                    <CardDescription className="line-clamp-2 min-h-[40px]">{hackathon.description}</CardDescription>
                   </AnimatedCardHeader>
-                  <AnimatedCardContent className="pb-2">
+                  <AnimatedCardContent className="pb-2 flex-grow">
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center text-gray-400">
                         <Calendar className="h-4 w-4 mr-2" />
@@ -285,7 +279,7 @@ export default function HackathonsPage() {
                       </Badge>
                     </div>
                   </AnimatedCardContent>
-                  <AnimatedCardFooter>
+                  <AnimatedCardFooter className="flex-shrink-0 mt-auto">
                     {user ? (
                       hackathon.status === "open" ? (
                         userEnrollment ? (
@@ -339,7 +333,7 @@ export default function HackathonsPage() {
               filteredHackathons
                 .filter((h) => h.status === "open")
                 .map((hackathon, index) => (
-                  <AnimatedCard key={hackathon.id} delay={index * 0.05}>
+                  <AnimatedCard key={hackathon.id} delay={index * 0.05} className="flex flex-col min-h-[400px]">
                     {hackathon.imageUrl && (
                       <div className="relative w-full h-[160px] overflow-hidden rounded-t-lg">
                         <Image
@@ -350,14 +344,14 @@ export default function HackathonsPage() {
                         />
                       </div>
                     )}
-                    <AnimatedCardHeader className="pb-2">
+                    <AnimatedCardHeader className="pb-2 flex-grow-0">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-xl">{hackathon.title}</CardTitle>
+                        <CardTitle className="text-xl line-clamp-1">{hackathon.title}</CardTitle>
                         <Badge className="bg-green-600">Open</Badge>
                       </div>
-                      <CardDescription className="line-clamp-2">{hackathon.description}</CardDescription>
+                      <CardDescription className="line-clamp-2 min-h-[40px]">{hackathon.description}</CardDescription>
                     </AnimatedCardHeader>
-                    <AnimatedCardContent className="pb-2">
+                    <AnimatedCardContent className="pb-2 flex-grow">
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center text-gray-400">
                           <Calendar className="h-4 w-4 mr-2" />
@@ -380,7 +374,7 @@ export default function HackathonsPage() {
                         </Badge>
                       </div>
                     </AnimatedCardContent>
-                    <AnimatedCardFooter>
+                    <AnimatedCardFooter className="flex-shrink-0 mt-auto">
                       {user ? (
                         userEnrollment ? (
                           userEnrollment === hackathon.id ? (
@@ -428,7 +422,7 @@ export default function HackathonsPage() {
               filteredHackathons
                 .filter((h) => h.status === "closed")
                 .map((hackathon, index) => (
-                  <AnimatedCard key={hackathon.id} delay={index * 0.05}>
+                  <AnimatedCard key={hackathon.id} delay={index * 0.05} className="flex flex-col min-h-[400px]">
                     {hackathon.imageUrl && (
                       <div className="relative w-full h-[160px] overflow-hidden rounded-t-lg">
                         <Image
@@ -439,14 +433,14 @@ export default function HackathonsPage() {
                         />
                       </div>
                     )}
-                    <AnimatedCardHeader className="pb-2">
+                    <AnimatedCardHeader className="pb-2 flex-grow-0">
                       <div className="flex justify-between items-start">
-                        <CardTitle className="text-xl">{hackathon.title}</CardTitle>
+                        <CardTitle className="text-xl line-clamp-1">{hackathon.title}</CardTitle>
                         <Badge className="bg-gray-600">Closed</Badge>
                       </div>
-                      <CardDescription className="line-clamp-2">{hackathon.description}</CardDescription>
+                      <CardDescription className="line-clamp-2 min-h-[40px]">{hackathon.description}</CardDescription>
                     </AnimatedCardHeader>
-                    <AnimatedCardContent className="pb-2">
+                    <AnimatedCardContent className="pb-2 flex-grow">
                       <div className="space-y-2 text-sm">
                         <div className="flex items-center text-gray-400">
                           <Calendar className="h-4 w-4 mr-2" />
@@ -469,7 +463,7 @@ export default function HackathonsPage() {
                         </Badge>
                       </div>
                     </AnimatedCardContent>
-                    <AnimatedCardFooter>
+                    <AnimatedCardFooter className="flex-shrink-0 mt-auto">
                       <AnimatedButton asChild variant="outline" className="w-full border-gray-700 hover:bg-gray-800">
                         <Link href={`/hackathons/${hackathon.slug || hackathon.id}`}>View Results</Link>
                       </AnimatedButton>
@@ -487,4 +481,3 @@ export default function HackathonsPage() {
     </div>
   )
 }
-
